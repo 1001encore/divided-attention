@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stroop Testi with Ball Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 90%;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .stimulus-container {
+            
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+			margin-bottom: 1rem;
+        }
+        
+        .stimulus {
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+			margin-bottom: 1rem;
+			margin-top: 1rem;
+        }
+        
+        .feedback-icon {
+
+            top: 0;
+            font-size: 2rem;
+            font-weight: bold;
+            z-index: 10;
+            animation: fadeInOut 0.5s;
+        }
+        
+        .correct-icon {
+            color: #22c55e;
+        }
+        
+        .incorrect-icon {
+            color: #ef4444;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+        
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border: none;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+        
+        .results-table th, .results-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .results-table th {
+            background-color: #f1f5f9;
+            font-weight: bold;
+        }
+        
+        .section {
+            display: none;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .transparent-block {
+            display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			z-index: 999;
+		}
+		
+        .active {
+            display: block;
+        }
+        
+        .progress-container {
+            width: 100%;
+            background-color: #e2e8f0;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            height: 0.5rem;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 0.5rem;
+            background-color: #3b82f6;
+            transition: width 0.3s ease;
+        }
+        
+        .instructions {
+            text-align: left;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .highlight {
+            background-color: #fef08a;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+        }
+        
+        /* Ball styles */
+        .ball {
+            position: absolute;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .cursor-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px dashed #ef4444;
+            z-index: 4;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        
+        .ball-path {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        .ball-stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Instruction Screen -->
+        <div id="instruction-screen" class="section active">
+            <h1 class="text-3xl font-bold mb-6">Stroop Testi with Ball Tracking</h1>
+            <div class="instructions">
+                <p class="mb-4">Bu testte, ekranda renk isimleri göreceksiniz. Bu kelimeler farklı renklerde görüntülenecek.</p>
+                <p class="mb-4"><span class="highlight">Yapmanız gereken:</span> Eğer kelimenin <strong>anlamı</strong> ile <strong>kelimenin rengi</strong> aynı ise (örneğin "KIRMIZI" kelimesi kırmızı renkte yazılmışsa), <span class="highlight">boşluk (space) tuşuna basmalısınız</span>.</p>
+                <p class="mb-4">Eğer kelimenin anlamı ile kendi rengi uyuşmuyorsa (örneğin "KIRMIZI" kelimesi mavi renkte yazılmışsa), <strong>hiçbir şey yapmayın</strong>.</p>
+                <p class="mb-4">Aynı zamanda ekranda hareket eden bir top göreceksiniz. Bu top farklı hızlarda ve hareket modlarında (düz, zikzak) hareket edecek.</p>
+                <p class="mb-6">Önce 5 denemeden oluşan bir eğitim bölümü olacak, ardından 20 denemeden oluşan asıl teste geçilecek.</p>
+            </div>
+            <button id="start-btn" class="btn">Testi Başlat</button>
+        </div>
+        
+        <!-- Stimulus Screen -->
+        <div id="stimulus-screen" class="transparent-block">
+            <p id="progress-text" class="text-sm text-gray-600" style="margin-bottom: 1rem;">Deneme 1/5</p>
+            <div class="progress-container">
+                <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+
+			   <div class="stimulus-container">
+                <div id="stimulus" class="stimulus"></div>
+                
+            </div>
+			<div id="feedback-icon" class="feedback-icon"></div>
+        </div>
+        
+        <!-- Training Complete Screen -->
+        <div id="training-complete-screen" class="section">
+            <h2 class="text-2xl font-bold mb-4">Eğitim Tamamlandı!</h2>
+            <p class="mb-6">Şimdi asıl teste geçiyoruz. 20 deneme olacak.</p>
+            <p class="mb-6">Aynı kurallar geçerli: <span class="highlight">Kelimenin anlamı ile kendi rengi eşleşiyorsa boşluk tuşuna basın.</span></p>
+            <button id="start-main-test-btn" class="btn">Testi Başlat</button>
+        </div>
+        
+        <!-- Results Screen -->
+        <div id="results-screen" class="section">
+            <h2 class="text-2xl font-bold mb-6">Test Sonuçları</h2>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4">Genel Bilgiler</h3>
+                <table class="results-table">
+                    <tr>
+                        <th>Toplam Süre</th>
+                        <td id="total-time">-</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4">Eğimen İstatistikleri</h3>
+                <table class="results-table">
+                    <tr>
+                        <th>Doğru Cevap Sayısı</th>
+                        <td id="training-correct">-</td>
+                    </tr>
+                    <tr>
+                        <th>Doğruluk Oranı</th>
+                        <td id="training-accuracy">-</td>
+                    </tr>
+                    <tr>
+                        <th>Ortalama Tepki Sürei (Doğru Cevaplar)</th>
+                        <td id="training-avg-response">-</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4">Ana Test İstatistikleri</h3>
+                <table class="results-table">
+                    <tr>
+                        <th>Doğru Cevap Sayısı</th>
+                        <td id="test-correct">-</td>
+                    </tr>
+                    <tr>
+                        <th>Doğruluk Oranı</th>
+                        <td id="test-accuracy">-</td>
+                    </tr>
+                    <tr>
+                        <th>Ortalama Tepki Sürei (Doğru Cevaplar)</th>
+                        <td id="test-avg-response">-</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4">Top Takip İstatistikleri</h3>
+                <table class="results-table" id="ball-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Hareket Tipi</th>
+                            <th>Ortalama Mesafe</th>
+                            <th>Ortalama Süre (ms)</th>
+                            <th>Toplam Süre (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ball-stats-body">
+                        <!-- Ball stats will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <button id="restart-btn" class="btn mt-8">Testi Yeniden Başlat</button>
+        </div>
+    </div>
+    
+    <!-- Ball elements -->
+    <div id="ball" class="ball" style="display: none;"></div>
+    <div id="cursor-circle" class="cursor-circle" style="display: none;"></div>
+    <div id="ball-path" class="ball-path"></div>
+    <div id="ball-stats" class="ball-stats" style="display: none;"></div>
+
+    <script>
+        // Expanded color words and their actual colors
+        const colorWords = ["KIRMIZI", "MAVİ", "YEŞİL", "SARI", "SİYAH", "TURUNCU", "MOR", "PEMBE", "KAHVERENGİ"];
+        const colors = {
+            "KIRMIZI": "#ef4444",
+            "MAVİ": "#3b82f6",
+            "YEŞİL": "#22c55e",
+            "SARI": "#eab308",
+            "SİYAH": "#000000",
+            "TURUNCU": "#f97316",
+            "MOR": "#a855f7",
+            "PEMBE": "#ec4899",
+            "KAHVERENGİ": "#92400e"
+        };
+        
+        // Test configuration
+        const config = {
+            trainingTrials: 5,
+            mainTestTrials: 2000,
+            stimulusDuration: 2500, // ms
+            isiDuration: 1000, // ms (inter-stimulus interval)
+            feedbackDuration: 500, // ms
+            ballSize: 40, // px
+            cursorCircleSize: 60, // px
+            ballSpeed: {
+                slow: 0.5,
+                normal: 1,
+                fast: 2
+            },
+            ballMovementTypes: ['straight', 'zigzag', 'fast', 'slow'],
+            ballStateDuration: 15000 // 15 seconds
+        };
+        
+        // State variables
+        let state = {
+            currentPhase: null, // 'training' or 'test'
+            currentTrial: 0,
+            totalTrials: 0,
+            startTime: null,
+            endTime: null,
+            trainingStats: {
+                correctResponses: 0,
+                totalTrials: 0,
+                responseTimes: []
+            },
+            testStats: {
+                correctResponses: 0,
+                totalTrials: 0,
+                responseTimes: []
+            },
+            currentStimulus: null,
+            stimulusStartTime: null,
+            timeoutId: null,
+            isWaitingForResponse: false,
+            lastTrialCorrect: null,
+            ballStats: {
+                straight: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                zigzag: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                fast: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                slow: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 }
+            },
+            currentBallMovement: null,
+            ballPosition: { x: 0, y: 0 },
+            cursorPosition: { x: 0, y: 0 },
+            ballDirection: { x: 1, y: 1 },
+            ballAnimationId: null,
+            ballPathPoints: [],
+            ballPathIndex: 0,
+            ballMovementStartTime: 0,
+            ballStatsUpdateInterval: null,
+            isBallInitialized: false,
+            ballStateTimer: null,
+            usedBallStates: []
+        };
+        
+        // DOM elements
+        const instructionScreen = document.getElementById('instruction-screen');
+        const stimulusScreen = document.getElementById('stimulus-screen');
+        const trainingCompleteScreen = document.getElementById('training-complete-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const stimulusElement = document.getElementById('stimulus');
+        const feedbackIcon = document.getElementById('feedback-icon');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const startBtn = document.getElementById('start-btn');
+        const startMainTestBtn = document.getElementById('start-main-test-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const totalTimeElement = document.getElementById('total-time');
+        const trainingCorrectElement = document.getElementById('training-correct');
+        const trainingAccuracyElement = document.getElementById('training-accuracy');
+        const trainingAvgResponseElement = document.getElementById('training-avg-response');
+        const testCorrectElement = document.getElementById('test-correct');
+        const testAccuracyElement = document.getElementById('test-accuracy');
+        const testAvgResponseElement = document.getElementById('test-avg-response');
+        const ballStatsBody = document.getElementById('ball-stats-body');
+        
+        // Ball elements
+        const ball = document.getElementById('ball');
+        const cursorCircle = document.getElementById('cursor-circle');
+        const ballPath = document.getElementById('ball-path');
+        const ballStatsElement = document.getElementById('ball-stats');
+        
+        // Initialize ball
+        ball.style.width = `${config.ballSize}px`;
+        ball.style.height = `${config.ballSize}px`;
+        cursorCircle.style.width = `${config.cursorCircleSize}px`;
+        cursorCircle.style.height = `${config.cursorCircleSize}px`;
+        
+        // Event listeners
+        startBtn.addEventListener('click', startTraining);
+        startMainTestBtn.addEventListener('click', startMainTest);
+        restartBtn.addEventListener('click', resetTest);
+        document.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('mousemove', updateCursorPosition);
+        
+        // Functions
+        function showScreen(screen) {
+            // Hide all screens
+            const screens = [instructionScreen, stimulusScreen, trainingCompleteScreen, resultsScreen];
+            screens.forEach(s => s.classList.remove('active'));
+            
+            // Show the requested screen
+            screen.classList.add('active');
+        }
+        
+        function startTraining() {
+            state.currentPhase = 'training';
+            state.currentTrial = 0;
+            state.totalTrials = config.trainingTrials;
+            state.trainingStats = { correctResponses: 0, totalTrials: 0, responseTimes: [] };
+            state.startTime = new Date();
+            
+            // Initialize ball if not already initialized
+            if (!state.isBallInitialized) {
+                initializeBall();
+                state.isBallInitialized = true;
+            }
+            
+            showScreen(stimulusScreen);
+            setTimeout(startTrial, config.isiDuration);
+        }
+        
+        function startMainTest() {
+            state.currentPhase = 'test';
+            state.currentTrial = 0;
+            state.totalTrials = config.mainTestTrials;
+            state.testStats = { correctResponses: 0, totalTrials: 0, responseTimes: [] };
+            
+            showScreen(stimulusScreen);
+            setTimeout(startTrial, config.isiDuration);
+        }
+        
+        function startTrial() {
+            state.currentTrial++;
+            
+            // Update progress
+            const progress = (state.currentTrial / state.totalTrials) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `Deneme ${state.currentTrial}/${state.totalTrials}`;
+            
+            // Generate random stimulus
+            const randomWord = colorWords[Math.floor(Math.random() * colorWords.length)];
+            let randomColor;
+            
+            // Decide if this will be congruent or incongruent (50/50 chance)
+            const isCongruent = Math.random() < 0.5;
+            
+            if (isCongruent) {
+                randomColor = colors[randomWord];
+            } else {
+                // Get a different color than the word's meaning
+                const possibleColors = Object.values(colors).filter(c => c !== colors[randomWord]);
+                randomColor = possibleColors[Math.floor(Math.random() * possibleColors.length)];
+            }
+            
+            state.currentStimulus = {
+                word: randomWord,
+                color: randomColor,
+                isCongruent: isCongruent
+            };
+            
+            // Show stimulus
+            stimulusElement.textContent = randomWord;
+            stimulusElement.style.color = randomColor;
+            feedbackIcon.textContent = '';
+            
+            // Start ball movement if not already moving
+            if (!state.ballAnimationId) {
+                startBallMovement();
+            }
+            
+            // Record start time and set timeout for auto-advance
+            state.stimulusStartTime = new Date();
+            state.isWaitingForResponse = true;
+            state.timeoutId = setTimeout(() => {
+                if (state.isWaitingForResponse) {
+                    endTrial(null); // No response
+                }
+            }, config.stimulusDuration);
+        }
+        
+        function endTrial(userResponded) {
+            state.isWaitingForResponse = false;
+            clearTimeout(state.timeoutId);
+            
+            // Determine if response was correct
+            let wasCorrect = false;
+            
+            if (state.currentStimulus.isCongruent) {
+                // For congruent trials, correct response is pressing space
+                wasCorrect = userResponded === true;
+                
+                // Show feedback for not pressing space when should have
+                if (userResponded === null && state.currentStimulus.isCongruent) {
+                    feedbackIcon.textContent = "✗";
+                    feedbackIcon.className = "feedback-icon incorrect-icon";
+                }
+            } else {
+                // For incongruent trials, correct response is NOT pressing space
+                wasCorrect = userResponded === false || userResponded === null;
+            }
+            
+            state.lastTrialCorrect = wasCorrect;
+            
+            // Show feedback icon if not already shown
+            if (!feedbackIcon.textContent) {
+                feedbackIcon.textContent = wasCorrect ? "✓" : "✗";
+                feedbackIcon.className = wasCorrect ? "feedback-icon correct-icon" : "feedback-icon incorrect-icon";
+            }
+            
+            // Update statistics
+            if (state.currentPhase === 'training') {
+                state.trainingStats.totalTrials++;
+                if (wasCorrect) {
+                    state.trainingStats.correctResponses++;
+                    // Record response time only for correct space presses on congruent trials
+                    if (userResponded && state.currentStimulus.isCongruent) {
+                        const responseTime = new Date() - state.stimulusStartTime;
+                        state.trainingStats.responseTimes.push(responseTime);
+                    }
+                }
+            } else {
+                state.testStats.totalTrials++;
+                if (wasCorrect) {
+                    state.testStats.correctResponses++;
+                    // Record response time only for correct space presses on congruent trials
+                    if (userResponded && state.currentStimulus.isCongruent) {
+                        const responseTime = new Date() - state.stimulusStartTime;
+                        state.testStats.responseTimes.push(responseTime);
+                    }
+                }
+            }
+            
+            // Wait for feedback to be shown before moving to next trial
+            setTimeout(() => {
+                // Check if we're done with this phase
+                if (state.currentTrial >= state.totalTrials) {
+                    if (state.currentPhase === 'training') {
+                        showScreen(trainingCompleteScreen);
+                    } else {
+                        // Test is complete, show results
+                        state.endTime = new Date();
+                        stopBallMovement();
+                        showResults();
+                    }
+                } else {
+                    // Go directly to next trial without fixation
+                    setTimeout(startTrial, config.isiDuration);
+                }
+            }, config.feedbackDuration);
+        }
+        
+        function showResults() {
+            // Calculate total time in seconds
+            const totalTimeSec = (state.endTime - state.startTime) / 1000;
+            totalTimeElement.textContent = `${totalTimeSec.toFixed(2)} saniye`;
+            
+            // Training stats
+            trainingCorrectElement.textContent = `${state.trainingStats.correctResponses}/${state.trainingStats.totalTrials}`;
+            
+            const trainingAccuracy = (state.trainingStats.correctResponses / state.trainingStats.totalTrials) * 100;
+            trainingAccuracyElement.textContent = `${trainingAccuracy.toFixed(1)}%`;
+            
+            let trainingAvgResponse = '-';
+            if (state.trainingStats.responseTimes.length > 0) {
+                const sum = state.trainingStats.responseTimes.reduce((a, b) => a + b, 0);
+                trainingAvgResponse = `${(sum / state.trainingStats.responseTimes.length).toFixed(0)} ms`;
+            }
+            trainingAvgResponseElement.textContent = trainingAvgResponse;
+            
+            // Test stats
+            testCorrectElement.textContent = `${state.testStats.correctResponses}/${state.testStats.totalTrials}`;
+            
+            const testAccuracy = (state.testStats.correctResponses / state.testStats.totalTrials) * 100;
+            testAccuracyElement.textContent = `${testAccuracy.toFixed(1)}%`;
+            
+            let testAvgResponse = '-';
+            if (state.testStats.responseTimes.length > 0) {
+                const sum = state.testStats.responseTimes.reduce((a, b) => a + b, 0);
+                testAvgResponse = `${(sum / state.testStats.responseTimes.length).toFixed(0)} ms`;
+            }
+            testAvgResponseElement.textContent = testAvgResponse;
+            
+            // Ball stats
+            updateBallStatsTable();
+            
+            showScreen(resultsScreen);
+        }
+        
+        function handleKeyPress(e) {
+            if (e.key === ' ' && state.isWaitingForResponse) {
+                endTrial(true);
+            }
+        }
+        
+        function resetTest() {
+            state = {
+                currentPhase: null,
+                currentTrial: 0,
+                totalTrials: 0,
+                startTime: null,
+                endTime: null,
+                trainingStats: {
+                    correctResponses: 0,
+                    totalTrials: 0,
+                    responseTimes: []
+                },
+                testStats: {
+                    correctResponses: 0,
+                    totalTrials: 0,
+                    responseTimes: []
+                },
+                currentStimulus: null,
+                stimulusStartTime: null,
+                timeoutId: null,
+                isWaitingForResponse: false,
+                lastTrialCorrect: null,
+                ballStats: {
+                    straight: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                    zigzag: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                    fast: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 },
+                    slow: { totalDistance: 0, totalTime: 0, count: 0, startTime: 0 }
+                },
+                currentBallMovement: null,
+                ballPosition: { x: 0, y: 0 },
+                cursorPosition: { x: 0, y: 0 },
+                ballDirection: { x: 1, y: 1 },
+                ballAnimationId: null,
+                ballPathPoints: [],
+                ballPathIndex: 0,
+                ballMovementStartTime: 0,
+                ballStatsUpdateInterval: null,
+                isBallInitialized: false,
+                ballStateTimer: null,
+                usedBallStates: []
+            };
+            
+            showScreen(instructionScreen);
+        }
+        
+        // Ball tracking functions
+        function initializeBall() {
+            // Initialize ball position
+            const maxX = window.innerWidth - config.ballSize;
+            const maxY = window.innerHeight - config.ballSize;
+            
+            state.ballPosition = {
+                x: Math.random() * maxX,
+                y: Math.random() * maxY
+            };
+            
+            // Show ball and cursor circle
+            ball.style.display = 'block';
+            cursorCircle.style.display = 'block';
+            ballStatsElement.style.display = 'block';
+            
+            // Start ball movement
+            startBallMovement();
+        }
+        
+        function startBallMovement() {
+            // Start with a random movement type
+            changeBallMovement();
+            
+            // Start animation if not already running
+            if (!state.ballAnimationId) {
+                state.ballMovementStartTime = Date.now();
+                animateBall();
+            }
+            
+            // Start updating stats
+            state.ballStatsUpdateInterval = setInterval(updateBallStats, 100);
+            
+            // Set timer to change ball state every 15 seconds
+            state.ballStateTimer = setInterval(changeBallMovement, config.ballStateDuration);
+        }
+        
+        function changeBallMovement() {
+            // Record final stats for current movement
+            if (state.currentBallMovement) {
+                const movementType = state.currentBallMovement;
+                const movementTime = Date.now() - state.ballStats[movementType].startTime;
+                state.ballStats[movementType].totalTime += movementTime;
+            }
+            
+            // Choose a movement type that hasn't been used yet in this session
+            let availableTypes = config.ballMovementTypes.filter(type => 
+                !state.usedBallStates.includes(type)
+            );
+            
+            // If all types have been used, reset the used list
+            if (availableTypes.length === 0) {
+                state.usedBallStates = [];
+                availableTypes = [...config.ballMovementTypes];
+            }
+            
+            // Select a random type from available ones
+            const movementType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+            
+            // Mark this type as used
+            state.usedBallStates.push(movementType);
+            
+            // Set the new movement type
+            state.currentBallMovement = movementType;
+            state.ballStats[movementType].count++;
+            state.ballStats[movementType].startTime = Date.now();
+            
+            // Set initial direction based on movement type
+            if (movementType === 'zigzag') {
+                state.ballDirection = {
+                    x: Math.random() > 0.5 ? 1 : -1,
+                    y: Math.random() > 0.5 ? 1 : -1
+                };
+            } else {
+                state.ballDirection = {
+                    x: 1,
+                    y: 1
+                };
+            }
+        }
+        
+        function stopBallMovement() {
+            cancelAnimationFrame(state.ballAnimationId);
+            clearInterval(state.ballStatsUpdateInterval);
+            clearInterval(state.ballStateTimer);
+            state.ballAnimationId = null;
+            
+            // Record final stats for current movement
+            if (state.currentBallMovement) {
+                const movementType = state.currentBallMovement;
+                const movementTime = Date.now() - state.ballStats[movementType].startTime;
+                state.ballStats[movementType].totalTime += movementTime;
+                state.currentBallMovement = null;
+            }
+        }
+        
+        function animateBall() {
+            const speed = getBallSpeed();
+            const maxX = window.innerWidth - config.ballSize;
+            const maxY = window.innerHeight - config.ballSize;
+            
+            // Update position based on movement type
+            if (state.currentBallMovement === 'zigzag') {
+                // Change direction more frequently for zigzag
+                if (Math.random() < 0.05) {
+                    state.ballDirection.x = Math.random() > 0.5 ? 1 : -1;
+                    state.ballDirection.y = Math.random() > 0.5 ? 1 : -1;
+                }
+            } else if (state.currentBallMovement === 'straight') {
+                // Keep direction constant for straight movement
+            }
+            
+            // Update position
+            state.ballPosition.x += state.ballDirection.x * speed;
+            state.ballPosition.y += state.ballDirection.y * speed;
+            
+            // Bounce off edges
+            if (state.ballPosition.x <= 0 || state.ballPosition.x >= maxX) {
+                state.ballDirection.x *= -1;
+            }
+            if (state.ballPosition.y <= 0 || state.ballPosition.y >= maxY) {
+                state.ballDirection.y *= -1;
+            }
+            
+            // Apply position to ball element
+            ball.style.left = `${state.ballPosition.x}px`;
+            ball.style.top = `${state.ballPosition.y}px`;
+            
+            // Apply position to cursor circle
+            cursorCircle.style.left = `${state.cursorPosition.x}px`;
+            cursorCircle.style.top = `${state.cursorPosition.y}px`;
+            
+            // Continue animation
+            state.ballAnimationId = requestAnimationFrame(animateBall);
+        }
+        
+        function getBallSpeed() {
+            switch (state.currentBallMovement) {
+                case 'fast':
+                    return config.ballSpeed.fast;
+                case 'slow':
+                    return config.ballSpeed.slow;
+                default:
+                    return config.ballSpeed.normal;
+            }
+        }
+        
+        function updateCursorPosition(e) {
+            state.cursorPosition = {
+                x: e.clientX,
+                y: e.clientY
+            };
+        }
+        
+        function updateBallStats() {
+            if (!state.currentBallMovement) return;
+            
+            // Calculate distance between ball center and cursor center
+            const ballCenter = {
+                x: state.ballPosition.x + config.ballSize / 2,
+                y: state.ballPosition.y + config.ballSize / 2
+            };
+            
+            const cursorCenter = {
+                x: state.cursorPosition.x,
+                y: state.cursorPosition.y
+            };
+            
+            const distance = Math.sqrt(
+                Math.pow(ballCenter.x - cursorCenter.x, 2) + 
+                Math.pow(ballCenter.y - cursorCenter.y, 2)
+            );
+            
+            // Update stats for current movement type
+            const movementType = state.currentBallMovement;
+            state.ballStats[movementType].totalDistance += distance;
+            
+            // Update stats display
+            const movementTime = Date.now() - state.ballStats[movementType].startTime;
+            const avgDistance = state.ballStats[movementType].totalDistance / 
+                ((Date.now() - state.ballStats[movementType].startTime) / 1000);
+            
+            ballStatsElement.innerHTML = `
+                <div><strong>Hareket Tipi:</strong> ${movementType}</div>
+                <div><strong>Ortalama Mesafe:</strong> ${avgDistance.toFixed(2)}px</div>
+                <div><strong>Süre:</strong> ${movementTime}ms</div>
+            `;
+        }
+        
+        function updateBallStatsTable() {
+            ballStatsBody.innerHTML = '';
+            
+            for (const [type, stats] of Object.entries(state.ballStats)) {
+                const avgDistance = stats.totalTime > 0 
+                    ? (stats.totalDistance / (stats.totalTime / 1000)).toFixed(2)
+                    : '0.00';
+                
+                const avgTime = stats.count > 0 
+                    ? (stats.totalTime / stats.count).toFixed(0)
+                    : '0';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${type}</td>
+                    <td>${avgDistance}px</td>
+                    <td>${avgTime}ms</td>
+                    <td>${stats.totalTime}ms</td>
+                `;
+                ballStatsBody.appendChild(row);
+            }
+        }
+    </script>
+</body>
+</html>
