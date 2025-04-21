@@ -97,6 +97,7 @@
             border-collapse: collapse;
             margin: 1.5rem 0;
         }
+
         
         .results-table th, .results-table td {
             padding: 0.75rem;
@@ -234,7 +235,9 @@
         </div>
         
         <!-- Results Screen -->
-        <div id="results-screen" class="section">
+
+        <div id="results-screen" class="section" style="overflow: scroll;">
+            <div style="height: 600px;">
             <h2 class="text-2xl font-bold mb-6">Test Sonuçları</h2>
             
             <div class="mb-8">
@@ -248,7 +251,7 @@
             </div>
             
             <div class="mb-8">
-                <h3 class="text-xl font-semibold mb-4">Eğimen İstatistikleri</h3>
+                <h3 class="text-xl font-semibold mb-4">Eğitici İstatistikleri</h3>
                 <table class="results-table">
                     <tr>
                         <th>Doğru Cevap Sayısı</th>
@@ -259,7 +262,7 @@
                         <td id="training-accuracy">-</td>
                     </tr>
                     <tr>
-                        <th>Ortalama Tepki Sürei (Doğru Cevaplar)</th>
+                        <th>Ortalama Tepki Süresi (Doğru Cevaplar)</th>
                         <td id="training-avg-response">-</td>
                     </tr>
                 </table>
@@ -277,7 +280,7 @@
                         <td id="test-accuracy">-</td>
                     </tr>
                     <tr>
-                        <th>Ortalama Tepki Sürei (Doğru Cevaplar)</th>
+                        <th>Ortalama Tepki Süresi (Doğru Cevaplar)</th>
                         <td id="test-avg-response">-</td>
                     </tr>
                 </table>
@@ -299,11 +302,40 @@
                     </tbody>
                 </table>
             </div>
-            
             <button id="restart-btn" class="btn mt-8">Testi Yeniden Başlat</button>
+
+            <br><br><br><br><br>
+            
+            <h2 class="text-2xl font-bold mb-6">Bilgi Formu</h2>
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4">Lütfen formu doldurunuz.</h3>
+                <div class="mb-4">
+                    <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Ad Soyad:</label>
+                    <input type="text" id="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="age" class="block text-gray-700 text-sm font-bold mb-2">Yaş:</label>
+                    <input type="number" id="age" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="occupation" class="block text-gray-700 text-sm font-bold mb-2">Meslek:</label>
+                    <input type="text" id="occupation" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="sex" class="block text-gray-700 text-sm font-bold mb-2">Cinsiyet:</label>
+                    <select id="sex" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="Erkek">Erkek</option>
+                        <option value="Kadın">Kadın</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="download-results-btn" class="btn mt-8">Sonuçları İndir</button>
         </div>
     </div>
-    
+    </div>
+
+
     <!-- Ball elements -->
     <div id="ball" class="ball" style="display: none;"></div>
     <div id="cursor-circle" class="cursor-circle" style="display: none;"></div>
@@ -327,8 +359,8 @@
         
         // Test configuration
         const config = {
-            trainingTrials: 5,
-            mainTestTrials: 2000,
+            trainingTrials: 1,
+            mainTestTrials: 1,
             stimulusDuration: 2500, // ms
             isiDuration: 1000, // ms (inter-stimulus interval)
             feedbackDuration: 500, // ms
@@ -424,6 +456,7 @@
         restartBtn.addEventListener('click', resetTest);
         document.addEventListener('keydown', handleKeyPress);
         document.addEventListener('mousemove', updateCursorPosition);
+
         
         // Functions
         function showScreen(screen) {
@@ -433,6 +466,17 @@
             
             // Show the requested screen
             screen.classList.add('active');
+
+            // Hide ball and cursor circle when training complete screen is active
+            if (screen === trainingCompleteScreen) {
+                ball.style.display = 'none';
+                cursorCircle.style.display = 'none';
+				ballStatsElement.style.display = 'none';
+            } else {
+                ball.style.display = 'block';
+                cursorCircle.style.display = 'block';
+				ballStatsElement.style.display = 'block';
+            }
         }
         
         function startTraining() {
@@ -460,6 +504,7 @@
             
             showScreen(stimulusScreen);
             setTimeout(startTrial, config.isiDuration);
+
         }
         
         function startTrial() {
@@ -507,6 +552,7 @@
             state.timeoutId = setTimeout(() => {
                 if (state.isWaitingForResponse) {
                     endTrial(null); // No response
+                    stopBallMovement();
                 }
             }, config.stimulusDuration);
         }
@@ -617,6 +663,74 @@
             updateBallStatsTable();
             
             showScreen(resultsScreen);
+        }
+
+        document.getElementById('download-results-btn').addEventListener('click', downloadResults);
+
+
+        function downloadResults() {
+            // Collect participant information
+            const name = document.getElementById('name').value;
+            const age = document.getElementById('age').value;
+            const occupation = document.getElementById('occupation').value;
+            const sex = document.getElementById('sex').value;
+
+            // Collect the results data from the page
+            const totalTime = document.getElementById('total-time').textContent;
+            const trainingCorrect = document.getElementById('training-correct').textContent;
+            const trainingAccuracy = document.getElementById('training-accuracy').textContent;
+            const trainingAvgResponse = document.getElementById('training-avg-response').textContent;
+            const testCorrect = document.getElementById('test-correct').textContent;
+            const testAccuracy = document.getElementById('test-accuracy').textContent;
+            const testAvgResponse = document.getElementById('test-avg-response').textContent;
+
+            // Collect ball stats from the table
+            const ballStatsTable = document.getElementById('ball-stats-table');
+            let ballStats = "Hareket Tipi, Ortalama Mesafe, Ortalama Süre, Toplam Süre\n"; // CSV header
+            const ballStatsRows = ballStatsTable.querySelectorAll('tbody tr');
+            ballStatsRows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = Array.from(cells).map(cell => cell.textContent).join(', ');
+                ballStats += rowData + "\n";
+            });
+
+            // Format the data into a string
+            let resultsString = "Test Sonuçları\n\n";
+            resultsString += "Katılımcı Bilgileri\n";
+            resultsString += `Ad Soyad: ${name}\n`;
+            resultsString += `Yaş: ${age}\n`;
+            resultsString += `Meslek: ${occupation}\n`;
+            resultsString += `Cinsiyet: ${sex}\n\n`;
+            resultsString += "Genel Bilgiler\n";
+            resultsString += `Toplam Süre: ${totalTime}\n\n`;
+            resultsString += "Eğitici İstatistikleri\n";
+            resultsString += `Doğru Cevap Sayısı: ${trainingCorrect}\n`;
+            resultsString += `Doğruluk Oranı: ${trainingAccuracy}\n`;
+            resultsString += `Ortalama Tepki Süresi (Doğru Cevaplar): ${trainingAvgResponse}\n\n`;
+            resultsString += "Ana Test İstatistikleri\n";
+            resultsString += `Doğru Cevap Sayısı: ${testCorrect}\n`;
+            resultsString += `Doğruluk Oranı: ${testAccuracy}\n`;
+            resultsString += `Ortalama Tepki Süresi (Doğru Cevaplar): ${testAvgResponse}\n\n`;
+            resultsString += "Top Takip İstatistikleri\n";
+            resultsString += ballStats;
+
+            // Create a Blob object from the string
+            const blob = new Blob([resultsString], { type: 'text/plain' });
+
+            // Create a temporary <a> element
+            const a = document.createElement('a');
+
+            // Set the href attribute to a data URL representing the Blob
+            a.href = URL.createObjectURL(blob);
+
+            // Set the download attribute to specify the filename
+            a.download = 'bölünmüş_dikkat_sonuçlar.txt';
+
+            // Simulate a click on the <a> element to trigger the download
+            a.click();
+
+            // Clean up by removing the temporary <a> element
+            URL.revokeObjectURL(a.href);
         }
         
         function handleKeyPress(e) {
